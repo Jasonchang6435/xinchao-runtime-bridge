@@ -65,6 +65,14 @@ Bridge 默认只接受四个原因：`user_interaction`、`user_note`、`schedul
 
 ## 环境要求
 
+### Zeabur / Docker 云端部署
+
+见 [Zeabur 部署说明](docs/ZEABUR.md)。根目录 Dockerfile 启动云端 worker，
+默认 `DRY_RUN=true`：只观察投递 ID，不读取正文、不注入、不 ACK。`/healthz`
+提供存活检查，`/readyz` 反映 SSE 连接；断流时自动退避重连。
+只有配置自己控制的 AI Runtime Webhook 后才可开启实际投递。
+Claude 网页版仍通过 MCP 拉取队列与回传事件，不能被本桥直接后台唤醒。
+
 - Node.js 20 或更高版本；
 - 心潮念平台签发的机器 Token；
 - 用户自己的 Runtime Adapter 可执行入口，或者支持严格 ACK 的 HTTPS Webhook。

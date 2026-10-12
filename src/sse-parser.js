@@ -63,7 +63,7 @@ export class SseParser {
   }
 }
 
-export async function* parseSseBody(body, signal) {
+export async function* parseSseBody(body, signal, { onActivity = () => {} } = {}) {
   if (!body) throw new Error('SSE response has no body');
   const parser = new SseParser();
   const decoder = new TextDecoder();
@@ -73,6 +73,7 @@ export async function* parseSseBody(body, signal) {
       signal?.throwIfAborted();
       const { done, value } = await reader.read();
       if (done) break;
+      onActivity();
       for (const event of parser.push(decoder.decode(value, { stream: true }))) yield event;
     }
     const tail = decoder.decode();

@@ -1,0 +1,11 @@
+name: Docker and bridge checks
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --network=none --target test -t xinchao-bridge:test .
+      - run: docker build --network=none --target runtime -t xinchao-bridge:runtime .
