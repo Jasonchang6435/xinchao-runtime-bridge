@@ -59,6 +59,19 @@ export function cloudStatus(config, state) {
   };
 }
 
+export function dropRootPrivileges(runtime = process) {
+  if (typeof runtime.getuid !== 'function' || runtime.getuid() !== 0) return;
+  // Some cloud platforms override Docker USER. Clear supplementary groups
+  // before irreversibly changing the worker's group and user to the image's
+  // node account. Failure must stop startup rather than silently keep root.
+  runtime.setgroups([]);
+  runtime.setgid(1000);
+  runtime.setuid(1000);
+  if (runtime.getuid() !== 1000 || runtime.getgid() !== 1000) {
+    throw new Error('cloud worker privilege drop failed');
+  }
+}
+
 export async function startCloud(config, {
   host = '0.0.0.0',
   client = new BridgeClient(config.bridge),
@@ -135,6 +148,7 @@ export async function startCloud(config, {
 }
 
 async function main() {
+  dropRootPrivileges();
   const worker = await startCloud(loadCloudConfig());
   const stop = () => { void worker.stop().catch(() => { process.exitCode = 1; }); };
   process.once('SIGTERM', stop);

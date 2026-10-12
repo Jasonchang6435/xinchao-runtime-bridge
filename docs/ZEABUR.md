@@ -79,6 +79,10 @@ SSE 断流或心跳超时后，以指数退避和少量抖动重连。默认从 
 30 秒；90 秒没有流活动时重新连接。SIGTERM 会关闭 SSE 和健康服务器。
 CLI 原来的 `run` 仍是单次连接，不改变本地用户的使用方式。
 
+Docker 声明 USER node；Zeabur 可能覆盖镜像用户，因此云端入口在发现 root 时
+先清理附加组，再降为 UID/GID 1000:1000。降权失败会拒绝启动。远程 exec
+进程仍可能是 root，验收应读取主进程身份，不能只看 exec 的 process.getuid()。
+
 ## 5. Claude 网页使用
 
 继续使用心潮 `https://vvxinchao.zeabur.app/mcp`，不把桥域名作为 MCP 地址。

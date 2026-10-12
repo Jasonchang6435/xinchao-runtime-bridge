@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { loadCloudConfig, startCloud, reconnectDelay } from '../src/cloud.js';
+import { loadCloudConfig, startCloud, reconnectDelay, dropRootPrivileges } from '../src/cloud.js';
 import { runBridge } from '../src/runner.js';
 
 const env = {
@@ -22,6 +22,19 @@ test('cloud defaults to DRY_RUN=true without requiring a receiver', () => {
   assert.equal(config.bridge.injector.mode, 'webhook');
   assert.equal(config.bridge.injector.webhookUrl, null);
   assert.equal(loadCloudConfig({ ...env, DRY_RUN: 'True' }).dryRun, true);
+});
+
+test('root startup drops supplementary groups, group and user in that order', () => {
+  const calls = []; let uid = 0; let gid = 0;
+  dropRootPrivileges({
+    getuid: () => uid, getgid: () => gid,
+    setgroups(value) { calls.push(['groups', value]); },
+    setgid(value) { calls.push(['gid', value]); gid = value; },
+    setuid(value) { calls.push(['uid', value]); uid = value; },
+  });
+  assert.deepEqual(calls, [['groups', []], ['gid', 1000], ['uid', 1000]]);
+  dropRootPrivileges({ getuid: () => 501 });
+  assert.throws(() => dropRootPrivileges({ getuid: () => 0, setgroups() { throw new Error('EPERM'); } }), /EPERM/);
 });
 
 test('live cloud mode requires a webhook and independent credential', () => {

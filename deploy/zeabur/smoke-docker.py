@@ -47,7 +47,8 @@ def queue():
     return node(heart, "const fs=require('node:fs');console.log(fs.readFileSync('/app/state/bridge-queue.json','utf8'))")['deliveries']
 
 def start_bridge(live=False):
-    args = ['run', '-d', '--name', bridge, '--network', 'container:' + heart,
+    # Emulate Zeabur's root override, even though the image declares USER node.
+    args = ['run', '-d', '--name', bridge, '--user', '0:0', '--network', 'container:' + heart,
             '-e', 'DRY_RUN=' + ('false' if live else 'true'),
             '-e', 'XINCHAO_BRIDGE_BASE_URL=http://127.0.0.1:18110',
             '-e', 'XINCHAO_BRIDGE_MACHINE_TOKEN=' + machine_token,
@@ -84,7 +85,7 @@ try:
     wait(lambda: status()['data']['noticesObserved'] >= 1)
     check('dry-run is explicit and has no receiver', status()['data']['deliveryEnabled'] is False and status()['data']['receiverConfigured'] is False)
     check('dry-run leaves actual heart delivery pending', next(d for d in queue() if d['id'] == delivery)['status'] == 'pending')
-    check('bridge runs as non-root', node(bridge, 'console.log(JSON.stringify(process.getuid()))') == 1000)
+    check('bridge main process drops root even when platform overrides Docker USER', node(bridge, "const fs=require('node:fs');console.log(JSON.stringify(Number(fs.readFileSync('/proc/1/status','utf8').match(/^Uid:\\s+(\\d+)/m)[1])))") == 1000)
     later_delivery = enqueue('synthetic-bridge-lab-002')
     wait(lambda: status()['data']['noticesObserved'] >= 2)
     check('new delivery arrives on the existing live SSE connection', next(d for d in queue() if d['id'] == later_delivery)['status'] == 'pending')
