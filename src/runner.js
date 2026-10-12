@@ -21,12 +21,17 @@ async function injectWithBoundedRetry(envelope, config, options) {
   throw lastError;
 }
 
-export async function runBridge(config, client, logger, signal) {
+export async function runBridge(config, client, logger, signal, {
+  dryRun = false,
+  onConnected = () => {},
+  onActivity = () => {},
+  onDelivery = () => {},
+} = {}) {
   const body = await client.openStream(signal);
   let connected = false;
   const handled = new Set();
 
-  for await (const rawEvent of parseSseBody(body, signal)) {
+  for await (const rawEvent of parseSseBody(body, signal, { onActivity })) {
     const event = parseStreamEvent(rawEvent);
     if (event.kind === 'ignored') {
       logger.debug('ignored stream event', { event: event.event });
@@ -35,12 +40,26 @@ export async function runBridge(config, client, logger, signal) {
     if (event.kind === 'connected') {
       if (connected) throw new Error('duplicate connected event');
       connected = true;
+      onConnected();
       logger.info('bridge stream connected');
       continue;
     }
     if (!connected) throw new Error('delivery received before connected handshake');
     if (handled.has(event.deliveryId)) {
       logger.debug('ignored duplicate delivery notification', { deliveryId: event.deliveryId });
+      continue;
+    }
+
+    onDelivery();
+    if (dryRun) {
+      // Observe IDs only. Never retrieve private text, invoke an adapter, or
+      // send either kind of ACK while testing against a production queue.
+      handled.add(event.deliveryId);
+      if (handled.size > 1_024) handled.delete(handled.values().next().value);
+      logger.info('delivery observed without retrieval or acknowledgement', {
+        deliveryId: event.deliveryId,
+        dryRun: true,
+      });
       continue;
     }
 

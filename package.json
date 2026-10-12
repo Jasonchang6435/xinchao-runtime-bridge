@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/cli.js run",
+    "start:cloud": "node src/cloud.js",
     "check": "node src/cli.js check",
     "test": "node --test"
   },
